@@ -1,0 +1,275 @@
+﻿<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/html" xmlns="http://www.w3.org/1999/html">
+<head>
+    <title>Rehabilitation Exercise Results</title>
+</head>
+<body>
+    <canvas id ="MAcanvas"  style="border:1px solid #d3d3d3;" ></canvas>
+    <br>
+    <canvas id ="HTcanvas"  style="border:1px solid #d3d3d3;" ></canvas>
+    <br>
+    <canvas id ="CAcanvas"  style="border:1px solid #d3d3d3;" ></canvas>
+
+<script type="text/javascript">
+    // data.js ***********************************************
+    var MA = {{ MA|tojson }}; // 读取MA的数据
+    console.log(MA);
+    var MAData = {
+    "title": "Weekly Exercise Results(MaxAngle)",
+    "verticaltitle": "Max_Angle",
+    "horizontaltitle": "Weekdays",
+    "data": [{ "category": "User1", "datacollection": [{ "title": "Mon", "amount": MA[0] }, { "title": "Tues", "amount": MA[1] }, { "title": "Wed", "amount": MA[2] }, { "title": "Thur", "amount": MA[3] }, { "title": "Fri", "amount": MA[4] }, { "title": "Sat", "amount": MA[5] }, { "title": "Sun", "amount": MA[6] }] }]
+    };
+
+    var HT = {{ HT|tojson }}; // 读取HT的数据
+    var HTData = {
+    "title": "Weekly Exercise Results(HoldTime)",
+    "verticaltitle": "Hold_Time",
+    "horizontaltitle": "Weekdays",
+    "data": [{ "category": "User1", "datacollection": [{ "title": "Mon", "amount": HT[0] }, { "title": "Tues", "amount": HT[1] }, { "title": "Wed", "amount": HT[2] }, { "title": "Thur", "amount": HT[3] }, { "title": "Fri", "amount": HT[4] }, { "title": "Sat", "amount": HT[5] }, { "title": "Sun", "amount": HT[6] }] }]
+    };
+
+    var CA = {{ CA|tojson }}; // 读取CA的数据
+    var CAData = {
+    "title": "Weekly Exercise Results(CompAngle)",
+    "verticaltitle": "CompAngle",
+    "horizontaltitle": "Weekdays",
+    "data": [{ "category": "User1", "datacollection": [{ "title": "Mon", "amount": CA[0] }, { "title": "Tues", "amount": CA[1] }, { "title": "Wed", "amount": CA[2] }, { "title": "Thur", "amount": CA[3] }, { "title": "Fri", "amount": CA[4] }, { "title": "Sat", "amount": CA[5] }, { "title": "Sun", "amount": CA[6] }] }]
+    };
+</script>
+<script type="text/javascript">
+    // histogram.js ****************************************** 该函数用来画图
+    function histogram(ctx, data, yInterval, yMax) { // (canvas, userdata, y轴间距， y轴最大)
+
+        this.ctx = ctx; // 画布的名字
+
+        //Json数据
+        this.data = data;
+
+        //Y轴一刻度的数值
+        this.yInterval = yInterval;
+
+        //Y轴最大值
+        this.yMax = yMax
+    };
+
+
+    histogram.prototype.draw = function () {
+
+
+        //柱状图标题
+        var title = this.data.title;
+
+        //Y轴标题
+        var verticaltitle = this.data.verticaltitle;
+
+        //X轴标题
+        var horizontaltitle = this.data.horizontaltitle;
+
+        //颜色
+        var colors = ["#3366FF", "#FFCC00"];
+
+        var dataarray = this.data.data;
+        var dataCollection;
+        var metaData;
+
+        var categoryCount = dataarray.length; // 种类的数量(营业额，营业额2)
+        var dataCount = dataarray[0].datacollection.length; // 某个种类中样本数(星期)
+        //最大y轴坐标
+        var maxamount = this.yMax
+
+        // 最大x轴宽度
+        var x_max = 0;
+        for (var i = 0; i < dataarray.length; i++) { // 几个用户
+            dataCollection = dataarray[i].datacollection;
+            for (var j = 0; j < dataCollection.length; j++) { //星期几 （0-6）
+                metaData = dataCollection[j];
+                for (var k = 0; k < metaData.amount.length; k++) { // 锻炼次数
+                    x_max = x_max + 1;
+                }
+            }
+        }
+
+        //动态设置 canvas 的尺寸 (canvas的长和宽)
+        this.ctx.canvas.height = Math.ceil(maxamount / this.yInterval) * 50 + 120;    //120 is for the chart title.
+        this.ctx.canvas.width = x_max * 10  + 550;  //550为固定长度 > 7*50
+
+        // 根据不同数据画不同纵坐标(最后一位是画图的mode)
+        if(verticaltitle == 'CompAngle'){
+            var vbar = new verticalbar(this.ctx, maxamount, this.yInterval,2);
+            var hbar = new horizontalbar(this.ctx, x_max / 2, 1, 25*(maxamount / this.yInterval + 2));
+            var y = this.ctx.canvas.height + 50 - 25 * (maxamount / this.yInterval + 2); // 柱的纵坐标起始位置
+            }
+        else{
+            var vbar = new verticalbar(this.ctx, maxamount, this.yInterval,1);
+            var hbar = new horizontalbar(this.ctx, x_max / 2, 1, 50); // 50表示y坐标起始
+            var y = this.ctx.canvas.clientHeight; // 柱的纵坐标起始位置
+            }
+
+
+        //绘制 x 轴和 y 轴
+        vbar.draw();
+        hbar.draw();
+
+        //绘制标题
+        this.ctx.font = "bold 16px Arial";
+        this.ctx.textAlign = "center";
+        this.ctx.fillText(title, this.ctx.canvas.width/2,25);
+
+        //绘制Y轴标题
+        this.ctx.font = "15px Arial";
+        this.ctx.textAlign = "center";
+        this.ctx.fillText(verticaltitle, 50, 40);
+
+        //绘制X轴标题
+        this.ctx.font = "15px Arial";
+        this.ctx.fillText(horizontaltitle, this.ctx.canvas.width - 47, this.ctx.canvas.height - 30);
+
+        //绘制柱
+        this.ctx.lineWidth = 5; // 柱的宽度
+        var x = 100; //柱的横坐标起始位置
+
+
+        for (var i = 0; i < dataarray.length; i++) { // 几个用户
+
+            dataCollection = dataarray[i].datacollection;
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = colors[i];
+            var x_start = x; // 柱的起始位置随着星期的变化
+
+            for (var j = 0; j < dataCollection.length; j++) { //星期几 （0-6）
+                metaData = dataCollection[j];
+                for (var k = 0; k < metaData.amount.length; k++) { // 锻炼次数
+
+                    this.ctx.moveTo(x_start + 10*k, y - 50-1); // 柱的x,y轴移动（调整星期之间的间隔让其正常）
+                    this.ctx.lineTo(x_start + 10*k, y - 50 - 1 - (metaData.amount[k] / vbar.interval) * 50 +5); //根据数值画柱的长度
+                    this.ctx.stroke();
+
+                    //绘制柱的金额的位置
+                    // this.ctx.font = "10px Arial";this.ctx.textAlign = "start";
+                    // this.ctx.fillText(metaData.amount[k], x - 10 - 10*k, y - 50 - 1 - (metaData.amount[k] / vbar.interval) * 50);
+                }
+
+
+                //绘制柱的星期几（mon tues）的位置
+                this.ctx.font = "12px Arial";
+                this.ctx.fillText(metaData.title, x_start + 5*k - 5, this.ctx.canvas.height - 30);
+
+                // x += (categoryCount * 30 + 100); // 柱与柱之间的间距 x += (categoryCount * 30 + 30);
+
+                // 更新起始位置
+                x_start = x_start + 10*k + 50 // 此处50为相邻星期柱之间的间隙
+            }
+
+            // x = 80 + 30 * (i + 1); // 没啥用
+
+        }
+        // 更新chart宽度
+        //this.ctx.canvas.width = x_start + 1000;  //150 is for right side index
+
+
+
+        //绘制右上角的标识器
+        this.ctx.lineWidth = 15;
+        for (var i = 0; i < dataarray.length; i++) {
+
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = colors[i];
+            this.ctx.moveTo(this.ctx.canvas.width-80, 50+i*17);
+            this.ctx.lineTo(this.ctx.canvas.width - 65, 50 + i * 17);
+            this.ctx.font = "12px Arial";
+            this.ctx.textAlign = "left";
+            this.ctx.fillText(dataarray[i].category, this.ctx.canvas.width - 60, 50 + i * 17+4);
+            this.ctx.stroke();
+        }
+
+    }
+</script>
+<script type="text/javascript">
+    // horizontalbar.js ********************************** 该函数用来画x横坐标的长度
+    function horizontalbar(ctx, categoryCount, dataCount, mode) {
+
+    this.ctx = ctx;
+    this.categoryCount = categoryCount;
+    this.dataCount = dataCount;
+    this.mode = mode
+    };
+
+    horizontalbar.prototype.draw = function () {
+
+        //计算X轴的长度
+        var width = this.categoryCount * this.dataCount * 30 + this.dataCount*30;
+
+        //绘制X轴
+        this.ctx.beginPath();
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeStyle = "#999999";
+        this.ctx.moveTo(50, this.ctx.canvas.clientHeight - this.mode);
+        this.ctx.lineTo(50+width, this.ctx.canvas.clientHeight - this.mode);
+        this.ctx.stroke();
+
+    };
+</script>
+
+<script type="text/javascript">
+    // verticalbar.js ************************************** 该函数用来画y纵坐标的长度
+    function verticalbar(ctx, maxAmount, interval, mode) {
+        this.ctx = ctx;
+        this.maxAmount = maxAmount;
+        this.interval = interval;
+        this.mode = mode
+    };
+
+    verticalbar.prototype.draw = function () {
+        //计算需要绘制几个刻度
+        var segmentcount = Math.ceil(this.maxAmount / this.interval);
+        //Y轴的高度
+        var height = segmentcount * 50;
+        //绘制Y轴
+        this.ctx.beginPath();
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeStyle = "#999999";
+        this.ctx.moveTo(50, this.ctx.canvas.clientHeight - 50);
+        this.ctx.lineTo(50, this.ctx.canvas.clientHeight - 50 - height - 20);
+        this.ctx.stroke();
+        //绘制刻度数
+        this.ctx.font = "12px Arial";
+        this.ctx.textAlign = "end";
+        // this.ctx.fillText("0", 40, this.ctx.canvas.clientHeight - 50);
+        if(this.mode == 1){
+            for (var j = 0; j < segmentcount + 1; j++) {
+                this.ctx.fillText(this.interval * j, 40, this.ctx.canvas.clientHeight - 50*(j+1));}
+        }
+        else{
+
+            this.ctx.fillText("Back", 40, this.ctx.canvas.clientHeight - 30);
+            for (var j = 0  ; j < segmentcount + 1; j++) {
+                this.ctx.fillText(this.interval * j - this.maxAmount / 2, 40, this.ctx.canvas.clientHeight - 50*(j+1));}
+            this.ctx.fillText("Front", 40, this.ctx.canvas.clientHeight - 50*j - 15);
+        }
+
+    };
+</script>
+
+<script type="text/javascript">
+    // 该函数把数值代入到直方图中
+    var MAcanvas = document.getElementById("MAcanvas");
+    var MAblank = MAcanvas.getContext("2d");
+    var MAplot = new histogram(MAblank, MAData, 30, 180); // (画布, 原始数据, y轴间距, y轴最大值)
+    MAplot.draw();
+
+    var HTcanvas = document.getElementById("HTcanvas");
+    var HTblank = HTcanvas.getContext("2d");
+    var HTplot = new histogram(HTblank, HTData, 1, 8);
+    HTplot.draw();
+
+    var CAcanvas = document.getElementById("CAcanvas");
+    var CAblank = CAcanvas.getContext("2d");
+    var CAplot = new histogram(CAblank, CAData, 10, 80); // 正负40
+    CAplot.draw();
+
+
+</script>
+
+</body>
+</html>

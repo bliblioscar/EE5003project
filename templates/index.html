@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>video recoder</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+</head>
+<style>
+    body{
+        background-color:#EFEDEF;
+    }
+</style>
+<body>
+<!--    <video id="video" playsinline="true"></video>-->
+    <article style="border:1px solid white;width:800px;height:650px;margin:0 auto;background-color:white;">
+        <section class="experiment" style="width:640px; height:480px;border:1px solid green; margin:50px auto;">
+            <div id="videos-container" style="width:640px; height:480px;">
+            </div>
+        </section>
+        <section class="experiment" style="text-align:center;border:none; margin-top:20px;">
+            <button id="start-recording" style="width:150px;height:50px"><font size="4">START</font></button>
+            <button id="stop-recording" style="width:150px;height:50px" disabled><font size="4">STOP</font></button>
+        </section>
+    </article>
+
+<script>
+    var mediaStream;
+    var recorderFile;
+    var stopRecordCallback;
+    var startBtn = document.getElementById("start-recording");
+    var stopBtn = document.getElementById("stop-recording");
+    var mediaRecorder;
+    var videosContainer = document.getElementById('videos-container');
+
+
+    window.onload = function(){ // 打开页面自启动
+        openCamera();
+    }
+
+
+    startBtn.onclick = function() { // 开始录制视频
+        this.disabled = true;
+        stopBtn.disabled = false;
+        startRecord();
+    };
+
+
+    stopBtn.onclick = function() { // 开始录制视频
+        this.disabled = true;
+        stopRecord(function() { // 结束录制
+        console.log(recorderFile);
+        });
+        alert("The recording has been uploaded.\nPlease wait for the result.");
+        setTimeout(function() { // 上传视频
+            send();
+        }, 1000);
+
+    };
+
+
+    var MediaUtils = {  // 获取用户媒体设备(处理兼容的问题)
+        /**
+        * @param videoEnable {boolean} - 是否启用摄像头
+        * @param audioEnable {boolean} - 是否启用麦克风
+        * @param callback {Function} - 处理回调
+        */
+        getUserMedia: function (videoEnable, audioEnable, callback) {
+            navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia ||
+                navigator.msGetUserMedia || window.getUserMedia; // 使得不同的浏览器上都能申请访问摄像头
+            var constraints = {
+                video: videoEnable,
+                audio: audioEnable,
+            };
+            if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
+                    callback(false, stream);
+                })['catch'](function(err) {
+                    callback(err);
+                });
+            } else if(navigator.getUserMedia) {
+                navigator.getUserMedia(constraints, function(stream) {
+                    callback(false, stream);
+                }, function(err) {
+                    callback(err);
+                });
+            } else {
+                callback(new Error('Not support userMedia!'));
+                }
+        },
+
+        closeStream: function (stream) {  // 关闭媒体流
+            /**
+            * @param stream {MediaStream} - 需要关闭的流
+            */
+            if (typeof stream.stop === 'function') {
+                stream.stop();
+            }
+            else {
+                let trackList = [stream.getAudioTracks(), stream.getVideoTracks()];
+
+                for (let i = 0; i < trackList.length; i++) {
+                    let tracks = trackList[i];
+                    if (tracks && tracks.length > 0) {
+                        for (let j = 0; j < tracks.length; j++) {
+                            let track = tracks[j];
+                            if (typeof track.stop === 'function') {
+                                track.stop();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+
+    function openCamera(){ // 打开摄像头
+        var len = videosContainer.childNodes.length;
+        for(var i=0;i<len;i++){
+            videosContainer.removeChild(videosContainer.childNodes[i]);
+        }
+        var video = document.createElement('video');
+        // var video = document.getElementById('video')
+        //video.setAttribute('autoplay', '');
+        //video.setAttribute('muted', '');
+        //video.setAttribute('playsinline', '');
+        var videoWidth = 640; // video 长和宽
+        var videoHeight = 480;
+        video.controls = false;
+        video.muted = true;
+        video.width = videoWidth;
+        video.height = videoHeight;
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('webkit-playsinline', 'true');
+
+        MediaUtils.getUserMedia(true, false, function (err, stream) {
+            if (err) {
+                throw err;
+            } else {
+                // 通过 MediaRecorder 记录获取到的媒体流
+                console.log();
+                mediaRecorder = new MediaRecorder(stream);
+                mediaStream = stream;
+                var chunks = [], startTime = 0;
+                video.srcObject = stream;
+                video.play();
+                videosContainer.appendChild(video);
+                mediaRecorder.ondataavailable = function(e) {
+                    mediaRecorder.blobs.push(e.data);
+                    chunks.push(e.data);
+                };
+                mediaRecorder.blobs = [];
+                mediaRecorder.onstop = function (e) {
+                    recorderFile = new Blob(chunks, { 'type' : mediaRecorder.mimeType });
+                    chunks = [];
+                    if (null != stopRecordCallback) {
+                        stopRecordCallback();
+                    }
+                };
+        }
+    });
+    }
+
+
+    function startRecord() {  // 开始录制
+        mediaRecorder.start();
+    }
+
+
+    function stopRecord(callback) {  // 停止录制
+        stopRecordCallback = callback;
+        // 终止录制器
+        mediaRecorder.stop();
+        // 关闭媒体流
+        MediaUtils.closeStream(mediaStream);
+
+    }
+
+
+    function send(){ // 发送函数
+        var file = new File([recorderFile], 'msr-' + (new Date).toISOString().replace(/:|\./g, '-') + '.mp4', {
+            type: 'video/mp4'
+        }); // recorderFile 就是记录的视频
+        var reader = new FileReader();
+        var video64
+        reader.readAsDataURL(file);
+        reader.onload = function(){
+            console.log(reader.result);
+            video64 = reader.result
+            var data = new FormData();
+            data.append("username", "test");
+            data.append("userfile", video64);
+            fetch('/', {method: "POST", body: data})
+            .then(function(data){
+               console.log(data);
+               console.log(typeof(data));
+               return data.text();
+            })
+            .then(data=>{
+               console.log(data);
+               console.log(typeof(data));
+               window.location.href="show"
+            })
+
+        }; // 视频现在已经编码成字符串传过来了，接下来解码就行
+
+    }
+
+
+</script>
+</body>
+</html>
